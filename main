@@ -1,0 +1,120 @@
+using System;
+using System.IO;
+using System.Threading;
+using System.Net.Mail;
+
+
+namespace GetPrintCount
+
+{
+    internal class Program
+    {
+        static string _TheNum = "";
+        static int lastNum = 0;
+
+        static string path = Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName;
+        static IWebDriver driver = new ChromeDriver(path + @"\drivers\");
+       
+        static void Main(string[] args)
+        {
+
+            string logPath = @"C:\Scripts\getPrinterCounter.txt";
+            DateTime now = DateTime.Now;
+            string time = now.ToString("dd.MMMM.yyyy");
+            Console.WriteLine(now);
+            reader(logPath, lastNum);
+
+            using (var reader = new StreamReader(logPath))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    lastNum = Convert.ToInt32(line.Remove(0, 13));
+
+                }
+            }
+
+            GoToWebPage();
+            SelectItem();
+            OpenMenu();
+            OpenCounter();
+            ViewNumber();
+            using (StreamWriter writer = new StreamWriter(logPath, true))
+            {
+                writer.WriteLine(time + " - " + _TheNum);
+            }
+
+            SendEmail(_TheNum);
+
+            driver.Close();
+            driver.Quit();
+            Console.WriteLine("TRIGER EXIT!");
+            Environment.Exit(0);
+        }
+
+        public static void GoToWebPage()
+        {
+            driver.Navigate().GoToUrl("http://100.230.0.100:8000/random/login.cgi");
+        }
+
+        public static void SelectItem()
+        {
+            IWebElement item = driver.FindElement(By.XPath("//*[@id='loginContents']/div[2]/fieldset/input"));
+
+            item.Click();
+        }
+
+        public static void OpenMenu()
+        {
+            Thread.Sleep(5000);
+            IWebElement item = driver.FindElement(By.XPath("//*[@id='navStandard']/ul/li[1]/a"));
+
+            item.Click();
+        }
+
+        public static void OpenCounter()
+        {
+            IWebElement item = driver.FindElement(By.XPath("//*[@id='navigation']/ul[6]/li/a"));
+
+            item.Click();
+        }
+
+        public static void ViewNumber()
+        {
+            _TheNum = driver.FindElement(By.XPath("//*[@id='mainCounterInformationModule']/div/table/tbody/tr[1]/td")).Text;
+            Console.WriteLine(_TheNum);
+        }
+
+        public static void reader(string path, int num)
+        {
+            using (var reader = new StreamReader(path))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    num = Convert.ToInt32(line.Remove(0, 13));
+
+                }
+            }
+        }
+
+        public static void SendEmail(string _TheNum)
+        {
+            SmtpClient mySmtpClient = new SmtpClient("random-smtp-server");
+            mySmtpClient.UseDefaultCredentials = true;
+
+            MailAddress from = new MailAddress("Mail@adress.cz");
+            MailAddress to = new MailAddress("tomas.beranek@adress.cz");
+            MailMessage myMail = new MailMessage(from, to);
+
+            myMail.Subject = "Expedice - denní odečet";
+            myMail.SubjectEncoding = System.Text.Encoding.UTF8;
+
+            myMail.Body = $"<b>192.169.1.1</b><br><b>Celkový počet vytištěných stran:</b><br>{_TheNum}";
+            myMail.BodyEncoding = System.Text.Encoding.UTF8;
+            myMail.IsBodyHtml = true;
+
+            mySmtpClient.Send(myMail);
+        }
+    }
+}
